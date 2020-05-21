@@ -1,9 +1,7 @@
 package evenements;
 
-import java.util.EventListener;
+public interface IncendieListener extends AnomalieListener {
 
-public interface IncendieListener extends EventListener {
-
-	public abstract void alarmeIncendieDeclanchee(IncendieEvent incendie);
+	public abstract void declenchementAlarmeIncendie(IncendieEvent incendie);
 
 }
