@@ -23,11 +23,13 @@ import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
-import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 
 import evenements.AnomalieEvent;
@@ -42,53 +44,49 @@ import exceptions.ValeurIncorrecteException;
 
 public class Fenetre extends JFrame {
 	
-	private int cleMax = 0;
+	private FenetreGauche fenetreGauche;
+	private FenetreDroite fenetreDroite;
+	
+	private int cleMax = 0; // Clé max du dicoCapteurs 
 	private Moniteur moniteurA = new Moniteur("A : Caserne de pompiers");
 	private Moniteur moniteurB = new Moniteur("B : Services environnementaux");
-	private Moniteur moniteurActif = this.moniteurA;
-	private Hashtable<Integer,Capteur> dicoCapteurs = new Hashtable<Integer,Capteur>();
-	private DefaultListModel<String> listeEvents = new DefaultListModel<String>();
-	private JButton details;
-	private JButton traitee;
-	private DetailsFenetre detailsfenetre;
+	private Moniteur moniteurActif = this.moniteurA; // Moniteur sélectionné par défaut
+	private Hashtable<Integer,Capteur> dicoCapteurs = new Hashtable<Integer,Capteur>(); // Liste des capteurs créés
+	private DefaultListModel<String> listeEvents = new DefaultListModel<String>();      // Liste des évènements simulés
+	private JButton details;                    // Bouton Détails
+	private JButton traitee;                    // Bouton Traitée
+	private JButton statistiques;               // Bouton Statistiques
+	private DetailsFenetre detailsfenetre;      // Fenetre des détails
+	private JFrame statFenetre = new JFrame();  // Fenetre des statistiques
 	
+	// Constructeur
 	public Fenetre() {
-		super("Application de Gestion d'Alarmes"); // Titre de la fenêtre
-		this.setSize(690,450);
-		this.setResizable(false);
-        this.setLocationRelativeTo(null);
-        this.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         
-        // Création de la variable contentPane permettant d'organiser le contenu de la fenêtre
-        JPanel contentPane = (JPanel) getContentPane();
-        contentPane.setBorder(BorderFactory.createLineBorder(new Color( 18, 30, 49)));
-        
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, gauche(), droite());
-        
-        contentPane.add(splitPane);
-        
-        this.setVisible(true);
+		fenetreGauche = new FenetreGauche(gauche()); // Fenetre de gauche de simulation d'alarmes
+		fenetreGauche.setJMenuBar(creerMenuBar());   // Menu en haut de la fenetre
+		fenetreDroite = new FenetreDroite(droite());
+		fenetreDroite.setJMenuBar(creerMenuBar());
         
 	}
 	
+	// ------------------------------------------------------------------------------------ //
+	// -------------------------- CONTENU FENETRE DE GAUCHE ------------------------------- //
+	// ------------------------------------------------------------------------------------ //
+	
 	private JPanel gauche() {
-		JPanel gauche = new JPanel();
-		gauche.setMinimumSize(new Dimension(295,-1)); // Pas besoin de gérer la hauteur --> -1
-        gauche.setPreferredSize(new Dimension(295,-1)); 
-        gauche.setMaximumSize(new Dimension(300,-1));
-		gauche.setLayout(new BorderLayout());
+		JPanel gauche = new JPanel(); 
+		gauche.setLayout(new BorderLayout());  // Layout points cardinaux (NORTH, SOUTH, ...)
 		
 		// PARTIE SUD : SIMULATION D'ANOMALIES
-		JPanel simul = new JPanel();
-		simul.add(getTitre("Simuler une Anomalie"));
-		simul.add(new JLabel("Renseignez les caractéristiques de l'anomalie"));
-		simul.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color( 18, 30, 49)));
+		JPanel sud = new JPanel(); // Container
+		sud.add(getTitre("Simuler une Anomalie"));   // Mise en forme du titre avec la méthode getTitre()
+		sud.add(new JLabel("Renseignez les caractéristiques de l'anomalie"));
+		sud.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color( 18, 30, 49))); // Barre de séparation bleue
 		
 		// Localisation
 		JPanel localisation = new JPanel();
 		localisation.add(new JLabel("Localisation : "));
-		JComboBox<String> ldLocal = new JComboBox<String>();
-		//setPossibilites(ldLocal);
+		JComboBox<String> ldLocal = new JComboBox<String>(); // Liste déroulante vide
 		localisation.add(ldLocal);
 		
 		// Boutons radio
@@ -110,34 +108,34 @@ public class Fenetre extends JFrame {
 		// Type de l'anomalie (incendie, gaz ou radiation)
 		JPanel typeAnomalie = new JPanel();
 		typeAnomalie.add(new JLabel("Type d'anomalie : "));
-		JComboBox<String> listeTypeAlarme = new JComboBox<String>(getChoix());
-		listeTypeAlarme.addItemListener(new ItemListener() {
+		JComboBox<String> listeTypeAlarme = new JComboBox<String>(getChoix()); // Liste déroulante contenant Incendie, Gaz, Radiation
+		listeTypeAlarme.addItemListener(new ItemListener() { // Ajout du listener
 			// Classe anonyme
 			@Override
-			public void itemStateChanged(ItemEvent e) {
-				Fenetre.this.setVisible(false);
-				texteGazRadiation.removeAll();
-				if (listeTypeAlarme.getSelectedItem().equals("Gaz")) {
-					texteGazRadiation.add(getZoneTexte("Type de gaz (hélium, ...): "));
+			public void itemStateChanged(ItemEvent e) { // Dès que l'utilisateur sélectionne un autre item
+				fenetreGauche.setVisible(false);
+				texteGazRadiation.removeAll(); // On supprime la zone de texte
+				if (listeTypeAlarme.getSelectedItem().equals("Gaz")) { // Si l'item choisi est "Gaz"
+					texteGazRadiation.add(getZoneTexte("Type de gaz (hélium, ...) : ")); // On crée une zone de texte adaptée
 				} else if (listeTypeAlarme.getSelectedItem().equals("Radiation")){
 					texteGazRadiation.add(getZoneTexte("Niveau de radiation (1 à 100) : "));
 				}
-				Fenetre.this.setVisible(true);
+				fenetreGauche.setVisible(true);
 			}
 		});
-		typeAnomalie.add(listeTypeAlarme);
+		typeAnomalie.add(listeTypeAlarme); // Ajout de la liste au container
 		
 		//Bouton simuler
 		JButton simuler = new JButton("Simuler");
-		simuler.setEnabled(false);
-		simuler.setToolTipText("Créez un capteur pour pouvoir utiliser ce bouton");
-		simuler.addActionListener(new ActionListener() {
+		simuler.setEnabled(false);                                                  // Le bouton est désactivé au début
+		simuler.setToolTipText("Créez un capteur pour pouvoir utiliser ce bouton"); // Info-bulle
+		simuler.addActionListener(new ActionListener() {                            // Ajout du listener
 			
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				// Récupération zone de texte optionnelle
+				// Récupération de la zone de texte optionnelle
 				String txt = null;
-				if (texteGazRadiation.getComponents().length!=0) { // Si la zone de texte existe
+				if (texteGazRadiation.getComponents().length!=0) { 
 					JTextField jtextfield = (JTextField) ((Container) texteGazRadiation.getComponents()[0]).getComponents()[1];
 					txt = jtextfield.getText();
 				}
@@ -152,43 +150,47 @@ public class Fenetre extends JFrame {
 				
 				// Récupération du type de l'anomalie
 				String type = listeTypeAlarme.getSelectedItem().toString();
+				
+				// Actions lors de l'appuie sur le bouton Simuler
 				try {
 					boutonSimuler(ldLocal,nivImportance,txt,type);
-				} catch (TypesDifferentsException e1) {
+				} catch (TypesDifferentsException e1) {      // Si le capteur créé n'est pas compatible avec l'anomalie déclenchée
 					e1.info();
-				} catch (ListeDeroulanteVideException e2) {
+				} catch (ListeDeroulanteVideException e2) {  // Si la liste déroulante est vide
 					e2.warning();
-				} catch (ValeurIncorrecteException e3) {
+				} catch (ValeurIncorrecteException e3) { // Si le niveau de radiation n'est pas compris entre 1 et 100
 					e3.affErreur();
 				}
 			}
 		});
-				
-		simul.add(localisation);
-		simul.add(typeAnomalie);
-		simul.add(boutonsRadio);
-		simul.add(texteGazRadiation);
-		simul.add(simuler);
+		
+		// Ajout des éléments au container
+		sud.add(localisation);
+		sud.add(typeAnomalie);
+		sud.add(boutonsRadio);
+		sud.add(texteGazRadiation);
+		sud.add(simuler);
+		
 		
 		// PARTIE NORD : AJOUT D'UN CAPTEUR
-		JPanel ajoutCapteur = new JPanel();
-		ajoutCapteur.setPreferredSize(new Dimension(-1,130));
-		ajoutCapteur.add(getTitre("Créer un nouveau Capteur"));
-		ajoutCapteur.add(new JLabel("Indiquez le nom de la zone couverte par le capteur"));
+		JPanel nord = new JPanel();
+		nord.setPreferredSize(new Dimension(-1,130));   // On ne contrôle pas la largeur --> -1
+		nord.add(getTitre("Créer un nouveau Capteur")); // Mise en forme du titre avec la méthode getTitre()
+		nord.add(new JLabel("Indiquez le nom de la zone couverte par le capteur"));
 		
 		// Localisation
-		JTextField newCapteurNom = new JTextField(13);
+		JTextField newCapteurNom = new JTextField(13); // Zone de texte
 		
 		// Type de capteur
-		JComboBox<String> newCapteurType = new JComboBox<String>(getChoix());
+		JComboBox<String> newCapteurType = new JComboBox<String>(getChoix()); // Liste déroulante
 		
 		//Bouton créer
 		JButton creer = new JButton("Créer");
-		creer.addActionListener(new ActionListener() {
+		creer.addActionListener(new ActionListener() { // Ajout du listener
 			// Classe anonyme
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				simuler.setEnabled(true);
+				simuler.setEnabled(true); // Désactivation 
 				simuler.setToolTipText("Simuler une anomalie");
 				if (newCapteurType.getSelectedItem().equals("Incendie")){
 					Fenetre.this.addCapteur(new IncendieCapteur(newCapteurNom.getText()));
@@ -204,20 +206,23 @@ public class Fenetre extends JFrame {
 			}
 		});
 		
-		ajoutCapteur.add(newCapteurNom);
-		ajoutCapteur.add(newCapteurType);
-		ajoutCapteur.add(creer);
+		nord.add(newCapteurNom);
+		nord.add(newCapteurType);
+		nord.add(creer);
 		
-		gauche.add(ajoutCapteur,BorderLayout.NORTH);
-		gauche.add(simul,BorderLayout.CENTER);
+		gauche.add(nord,BorderLayout.NORTH);
+		gauche.add(sud,BorderLayout.CENTER);
+		//gauche.add(barre(),BorderLayout.SOUTH);
 		return gauche;
 	}
 	
-	// PARTIE DE DROITE
+	
+	// ------------------------------------------------------------------------------------ //
+	// -------------------------- CONTENU FENETRE DE DROITE ------------------------------- //
+	// ------------------------------------------------------------------------------------ //
+	
 	private JPanel droite() {
 		JPanel droite = new JPanel();
-		droite.setMinimumSize(new Dimension(338,-1));
-		//droite.setPreferredSize(new Dimension(300,-1));
 		droite.setLayout(new BorderLayout());
 		
 		// PARTIE NORD : CHOIX DU MONITEUR
@@ -264,6 +269,17 @@ public class Fenetre extends JFrame {
 	    
 	    // Liste des évènements
 	    JList<String> liste = new JList<String>(this.listeEvents);
+	    liste.addMouseListener(new MouseAdapter() {
+	    	public void mouseClicked(MouseEvent e) {
+	    		if (!getMoniteurActif().evenements.isEmpty()) {
+	    			details.setEnabled(true);
+	    			traitee.setEnabled(false);
+	    		}	
+	    	}
+	    });
+	    
+	    JScrollPane scListe = new JScrollPane(liste);
+	    scListe.setPreferredSize(new Dimension(300,180));
 	    
 	    // Bouton Détails
 	    details = new JButton("Détails");
@@ -295,30 +311,45 @@ public class Fenetre extends JFrame {
 			}
 		});
 	    
-	    // Pour rendre visible le bouton Détails
-	    liste.addMouseListener(new MouseAdapter() {
-	    	public void mouseClicked(MouseEvent e) {
-	    		if (!getMoniteurActif().evenements.isEmpty()) {
-	    			details.setEnabled(true);
-	    			traitee.setEnabled(false);
-	    		}
-	    		
-	    	}
-	    });
+	    // Bouton Statistiques
+	    statistiques = new JButton("Statistiques");
+	    statistiques.setEnabled(false);
+	    statistiques.addActionListener(new ActionListener() {
+			
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				statFenetre.setTitle("Moniteur "+getMoniteurActif().getType());
+				statFenetre.getContentPane().add(new PieChart(getMoniteurActif()));
+				statFenetre.setSize(300, 300);
+				statFenetre.setLocationRelativeTo(null);
+				statFenetre.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+				statFenetre.setVisible(true);
+			    JOptionPane.showMessageDialog(fenetreGauche, legende(), "Légende", JOptionPane.PLAIN_MESSAGE);
+			}
+		});
 	    
-	    JScrollPane scListe = new JScrollPane(liste);
-	    scListe.setPreferredSize(new Dimension(300,180));
-	   
+	  
 	    sud.add(scListe);
 	    sud.add(details);
 	    sud.add(traitee);
+	    sud.add(statistiques);
 	    
 
 	    droite.add(nord,BorderLayout.NORTH);
 	    droite.add(sud,BorderLayout.CENTER);
+	    //droite.add(barre(),BorderLayout.SOUTH);
 	    return droite;
 	}
 	
+	private JPanel barre() {
+		JPanel panel = new JPanel();
+		JLabel label = new JLabel("Polytech Annecy-Chambéry | IDU3 | Année 2019-2020");
+
+		panel.add(label);
+		panel.setBorder(BorderFactory.createLineBorder(new Color( 18, 30, 49)));
+		return panel;
+	}
+
 	public void addCapteur(Capteur capteur){
 		setListeners(capteur);
 		this.dicoCapteurs.put(this.cleMax+1,capteur);
@@ -334,6 +365,23 @@ public class Fenetre extends JFrame {
 		} else if (capteur instanceof RadiationCapteur){ 
 			((RadiationCapteur) capteur).addListener(this.moniteurB);
 		}
+	}
+	
+	private JMenuBar creerMenuBar() {
+		JMenuBar menu = new JMenuBar();
+		JMenu premier = new JMenu("Fermer");
+		JMenuItem fermer = new JMenuItem("Tout fermer");
+		fermer.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				statFenetre.dispose();
+				fenetreDroite.dispose();
+				fenetreGauche.dispose();	
+			}
+		});
+		premier.add(fermer);
+		menu.add(premier);
+		return menu;
 	}
 
 	public Moniteur getMoniteurActif() {
@@ -369,21 +417,28 @@ public class Fenetre extends JFrame {
 		} else {
 			if (capteurDeclencheur instanceof IncendieCapteur) {
 				((IncendieCapteur) this.dicoCapteurs.get(indiceInverse)).simulerIncendie(nivImportance);
-				JOptionPane.showMessageDialog(null, "Une alarme incendie a été déclenchée.", 
+				JOptionPane.showMessageDialog(null, "Alarme incendie déclenchée !", 
 						"Alarme incendie déclenchée", JOptionPane.PLAIN_MESSAGE,new ImageIcon("data/incendie.png"));
 			} else if (capteurDeclencheur instanceof GazCapteur) {
 				((GazCapteur) this.dicoCapteurs.get(indiceInverse)).simulerFuiteGaz(nivImportance, texte);
-				JOptionPane.showMessageDialog(null, "Une alarme de fuite de gaz a été déclenchée.", 
+				JOptionPane.showMessageDialog(null, "Alarme fuite de gaz déclenchée !", 
 						"Alarme gaz déclenchée", JOptionPane.PLAIN_MESSAGE,new ImageIcon("data/gaz.png"));
 			} else {
 				((RadiationCapteur) this.dicoCapteurs.get(indiceInverse)).simulerAccidentNucleaire(nivImportance, Integer.parseInt(texte));;
-				JOptionPane.showMessageDialog(null, "Une alarme d'accident nucléaire a été déclenchée.", 
+				JOptionPane.showMessageDialog(null, "Alarme radiation déclenchée !", 
 						"Alarme radiation déclenchée", JOptionPane.PLAIN_MESSAGE,new ImageIcon("data/radiation.png"));
 			}
 		}
 		setEvents();
 	}
 	
+	private String legende() {
+		String res = ("LEGENDE\n");
+		res += "Vert : Niveau d'importance 1\n";
+		res += "Orange : Niveau d'importance 2\n";
+		res += "Rouge : Niveau d'importance 3\n";
+		return res;
+	}
 	
 	private JPanel getZoneTexte(String intitule) {
 		JPanel res = new JPanel();
@@ -402,6 +457,10 @@ public class Fenetre extends JFrame {
 		this.listeEvents.removeAllElements();
 		this.details.setEnabled(false);
 		this.traitee.setEnabled(false);
+		if (getMoniteurActif().evenements.isEmpty())
+			statistiques.setEnabled(false);
+		else
+			statistiques.setEnabled(true);
 		for (AnomalieEvent ae : getMoniteurActif().evenements) {
 			this.listeEvents.addElement(ae.getType()+" - "+ae.getLocalisation()+" - "+ae.getDate());
 		}
